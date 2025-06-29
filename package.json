@@ -2,7 +2,7 @@
   "name": "words",
   "private": true,
   "version": "0.0.1",
-  "homepage": "https://StotTot.github.io/Word-Game",
+  "homepage": "https://github.com/StotTot/Word-Game",
   "type": "module",
   "scripts": {
     "dev": "vite",
