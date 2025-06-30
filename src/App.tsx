@@ -4,20 +4,20 @@ import './App.css'
 type LetterState = 'correct' | 'present' | 'absent' | ''
 
 function getFeedback(guess: string, answer: string): LetterState[] {
-  const feedback: LetterState[] = Array(6).fill('')
+  const feedback: LetterState[] = Array(answer.length).fill('')
   const answerArr = answer.split('')
   const guessArr = guess.split('')
-  const used = Array(6).fill(false)
+  const used = Array(answer.length).fill(false)
 
   // First pass: correct letters
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < answer.length; i++) {
     if (guessArr[i] === answerArr[i]) {
       feedback[i] = 'correct'
       used[i] = true
     }
   }
   // Second pass: present letters
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < answer.length; i++) {
     if (feedback[i]) continue
     const idx = answerArr.findIndex((ch, j) => ch === guessArr[i] && !used[j])
     if (idx !== -1) {
@@ -33,34 +33,47 @@ function getFeedback(guess: string, answer: string): LetterState[] {
 const KEYBOARD_ROWS = [
   ['q','w','e','r','t','y','u','i','o','p'],
   ['a','s','d','f','g','h','j','k','l'],
-  ['Enter','z','x','c','v','b','n','m','Backspace']
+  ['z','x','c','v','b','n','m','Backspace']
 ]
 
 export default function App() {
+  const [wordLength, setWordLength] = useState<5 | 6>(6)
   const [wordsList, setWordsList] = useState<string[]>([])
   const [answer, setAnswer] = useState<string>('')
   const [guesses, setGuesses] = useState<string[]>([])
-  const [input, setInput] = useState<string[]>(['', '', '', '', '', ''])
+  const [input, setInput] = useState<string[]>(Array(wordLength).fill(''))
   const [feedbacks, setFeedbacks] = useState<LetterState[][]>([])
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing')
-  const [animRows, setAnimRows] = useState<number[]>([]) // rows to animate
+  const [animRows, setAnimRows] = useState<number[]>([])
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // Keyboard state for coloring
   const [keyStates, setKeyStates] = useState<Record<string, LetterState>>({})
 
+  // Load words when wordLength changes
   useEffect(() => {
-    fetch('/6letterwords.json')
+    const file = wordLength === 5 ? '5letterwords.json' : '6letterwords.json'
+    fetch(file)
       .then(res => res.json())
       .then((data: { words: string[] }) => {
-        const words = data.words.map(w => w.toLowerCase()) // convert to lowercase
+        const words = data.words.map(w => w.toLowerCase())
         setWordsList(words)
         if (words.length > 0) {
           const word = words[Math.floor(Math.random() * words.length)]
           setAnswer(word)
         }
       })
-  }, [])
+    setGuesses([])
+    setFeedbacks([])
+    setInput(Array(wordLength).fill(''))
+    setStatus('playing')
+    setKeyStates({})
+    setAnimRows([])
+    setTimeout(() => {
+      inputRefs.current[0]?.focus()
+    }, 0)
+    // eslint-disable-next-line
+  }, [wordLength])
 
   // Listen for real keyboard input
   useEffect(() => {
@@ -87,7 +100,7 @@ export default function App() {
     const newInput = [...input]
     newInput[i] = val
     setInput(newInput)
-    if (val && i < 4) {
+    if (val && i < wordLength - 1) {
       inputRefs.current[i + 1]?.focus()
     }
   }
@@ -114,7 +127,7 @@ export default function App() {
     const newFeedbacks = [...feedbacks, fb]
     setGuesses(newGuesses)
     setFeedbacks(newFeedbacks)
-    setInput(['', '', '', '', '', ''])
+    setInput(Array(wordLength).fill(''))
     inputRefs.current[0]?.focus()
     setAnimRows(rows => [...rows, newGuesses.length - 1]) // animate this row
 
@@ -136,7 +149,7 @@ export default function App() {
 
     if (guess === answer) {
       setStatus('won')
-    } else if (newGuesses.length === 7) {
+    } else if (newGuesses.length === (wordLength === 5 ? 6 : 7)) {
       setStatus('lost')
     }
   }
@@ -147,7 +160,7 @@ export default function App() {
     setAnswer(word)
     setGuesses([])
     setFeedbacks([])
-    setInput(['', '', '', '', '', ''])
+    setInput(Array(wordLength).fill(''))
     setStatus('playing')
     setKeyStates({})
     setAnimRows([])
@@ -161,7 +174,7 @@ export default function App() {
       submitGuess()
     } else if (key === 'Backspace') {
       const idx = input.findIndex(ch => ch === '')
-      const pos = idx === -1 ? 5 : Math.max(0, idx - 1)
+      const pos = idx === -1 ? wordLength - 1 : Math.max(0, idx - 1)
       if (input[pos]) {
         const newInput = [...input]
         newInput[pos] = ''
@@ -187,8 +200,32 @@ export default function App() {
   return (
     <div className="App" style={{ maxWidth: 350, margin: '40px auto', fontFamily: 'sans-serif' }}>
       <h2>Wordle Clone</h2>
+      <div style={{ marginBottom: 16 }}>
+        <label>
+          <input
+            type="radio"
+            name="wordlen"
+            value={5}
+            checked={wordLength === 5}
+            onChange={() => setWordLength(5)}
+            style={{ marginRight: 4 }}
+          />
+          5 Letters
+        </label>
+        <label style={{ marginLeft: 16 }}>
+          <input
+            type="radio"
+            name="wordlen"
+            value={6}
+            checked={wordLength === 6}
+            onChange={() => setWordLength(6)}
+            style={{ marginRight: 4 }}
+          />
+          6 Letters
+        </label>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {Array.from({ length: 7 }).map((_, row) => (
+        {Array.from({ length: wordLength === 5 ? 6 : 7 }).map((_, row) => (
           <div key={row} style={{ display: 'flex', gap: 4 }}>
             {(guesses[row] ? guesses[row].split('') : input).map((_ch, i) => (
               <input
